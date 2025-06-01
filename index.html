@@ -1,0 +1,217 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hakcoin Blockchain</title>
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #58a6ff;
+    }
+    #balance, #block-details {
+      text-align: center;
+      margin: 10px auto;
+    }
+    #chart-container {
+      height: 300px;
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+    }
+    #chain {
+      display: flex;
+      overflow-x: auto;
+      padding: 10px;
+      max-width: 100%;
+    }
+    .block {
+      background: #161b22;
+      border: 2px solid #58a6ff;
+      border-radius: 10px;
+      padding: 10px;
+      margin-right: 10px;
+      min-width: 140px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+    }
+    .block::after {
+      content: "⛓️";
+      position: absolute;
+      top: 50%;
+      right: -15px;
+      transform: translateY(-50%);
+    }
+    .block:last-child::after {
+      display: none;
+    }
+    .exchange-board {
+      background: #161b22;
+      border: 1px solid #30363d;
+      padding: 15px;
+      border-radius: 12px;
+      max-width: 900px;
+      margin: 20px auto;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #30363d;
+    }
+    .tx-detail {
+      font-size: 12px;
+      background: #0f1620;
+      padding: 4px 8px;
+      margin-top: 6px;
+      border-radius: 5px;
+      border: 1px solid #2a2f36;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔷 Hakcoin Blockchain Explorer – $HAK</h1>
+  <div id="balance"></div>
+  <div id="chart-container"></div>
+  <div class="exchange-board">
+    <h2>📈 Order Book - latest transaction</h2>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Sender</th><th>Receiver</th><th>Amount</th></tr>
+      </thead>
+      <tbody id="orderbook"></tbody>
+    </table>
+  </div>
+  <div id="chain"></div>
+  <div id="block-details"></div>
+
+  <script>
+    const totalSupply = 100000000;
+    let price = 1000;
+    let volume24h = 0;
+    let hakimBalance = 0;
+    let blockIndex = 0;
+    const blocks = [];
+    const orderbook = document.getElementById('orderbook');
+    let currentCandle = null;
+
+    const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+      width: document.getElementById('chart-container').clientWidth,
+      height: 300,
+      layout: { background: { color: '#0d1117' }, textColor: '#c9d1d9' },
+      grid: { vertLines: { color: '#30363d' }, horzLines: { color: '#30363d' } },
+      timeScale: { timeVisible: true, secondsVisible: true }
+    });
+    const candleSeries = chart.addCandlestickSeries();
+
+    function updateCandle(priceChange) {
+      const now = new Date();
+      const timestamp = Math.floor(now.getTime() / 1000 / 300) * 300;
+      const newPrice = price + priceChange;
+      if (!currentCandle || currentCandle.time !== timestamp) {
+        currentCandle = {
+          time: timestamp,
+          open: price,
+          high: newPrice,
+          low: newPrice,
+          close: newPrice
+        };
+        candleSeries.update(currentCandle);
+      } else {
+        currentCandle.high = Math.max(currentCandle.high, newPrice);
+        currentCandle.low = Math.min(currentCandle.low, newPrice);
+        currentCandle.close = newPrice;
+        candleSeries.update(currentCandle);
+      }
+      price = newPrice;
+    }
+
+    function randomWallet() {
+      return '0x' + Math.random().toString(16).substring(2, 10);
+    }
+
+    function updateBalance() {
+      const marketCap = totalSupply * price;
+      document.getElementById('balance').innerText = `MarketCap: $${marketCap.toLocaleString()} | Volume 24h: $${volume24h.toLocaleString()} | Harga: $${price.toFixed(2)}`;
+    }
+
+    function addToOrderBook(sender, receiver, amount) {
+      const row = document.createElement('tr');
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+      row.innerHTML = `<td>${time}</td><td>${sender}</td><td>${receiver}</td><td>$${amount.toFixed(2)}</td>`;
+      row.onclick = () => alert(`Sender: ${sender}\nReceiver: ${receiver}\nAmount: $${amount.toFixed(2)}\nTime: ${time}`);
+      orderbook.prepend(row);
+      if (orderbook.childElementCount > 20) {
+        orderbook.removeChild(orderbook.lastChild);
+      }
+    }
+
+    function mineBlock() {
+      hakimBalance += 5;
+      const txCount = Math.floor(Math.random() * 4000) + 3000;
+      let totalAmount = 0;
+      const prevHash = blocks.length > 0 ? blocks[blocks.length - 1].hash : 'GENESIS';
+      const txList = [];
+
+      for (let i = 0; i < txCount; i++) {
+        const sender = randomWallet();
+        const receiver = randomWallet();
+        const amount = Math.random() * 100 + 1;
+        totalAmount += amount;
+        volume24h += amount;
+        txList.push({ sender, receiver, amount });
+      }
+
+      const hash = Math.random().toString(36).substring(2, 10);
+      const blockData = { index: ++blockIndex, txCount, totalAmount, hash, prevHash, txList };
+      blocks.push(blockData);
+
+      const blockDiv = document.createElement('div');
+      blockDiv.className = 'block';
+      blockDiv.innerText = `Block #${blockIndex}`;
+      blockDiv.onclick = () => {
+        let txDetails = blockData.txList.slice(0, 10).map(tx => `<div class='tx-detail'>Sender: ${tx.sender}<br>Receiver: ${tx.receiver}<br>Amount: $${tx.amount.toFixed(2)}</div>`).join('');
+        document.getElementById('block-details').innerHTML = `
+          <h2>Block #${blockData.index}</h2>
+          <p>Tx Count: ${blockData.txCount}</p>
+          <p>Total Amount: $${blockData.totalAmount.toFixed(2)}</p>
+          <p>Prev Hash: ${blockData.prevHash}</p>
+          <p>Hash: ${blockData.hash}</p>
+          ${txDetails}
+        `;
+      };
+
+      document.getElementById('chain').appendChild(blockDiv);
+      updateBalance();
+    }
+
+    function generateTransaction() {
+      const sender = randomWallet();
+      const receiver = randomWallet();
+      const amount = Math.random() * 100 + 1;
+      volume24h += amount;
+      addToOrderBook(sender, receiver, amount);
+      updateCandle((Math.random() - 0.5) * 2);
+      updateBalance();
+    }
+
+    updateBalance();
+    mineBlock();
+    setInterval(generateTransaction, 1000);
+    setInterval(mineBlock, 300000);
+  </script>
+</body>
+</html>
